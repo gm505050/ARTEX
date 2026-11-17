@@ -1,0 +1,37 @@
+name: mirror-upstream-release
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Upstream release tag to mirror
+        required: true
+        default: v0.3.30
+permissions:
+  contents: write
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download upstream release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p assets
+          gh release download "${{ inputs.tag }}" -R RuoJi6/ARTEX -D assets
+          ls -lah assets
+      - name: Publish mirrored release on this repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${{ inputs.tag }}"
+          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release upload "$TAG" assets/* --repo "${{ github.repository }}" --clobber
+          else
+            gh release create "$TAG" assets/* \
+              --repo "${{ github.repository }}" \
+              --title "$TAG" \
+              --notes "Mirrored prebuilt assets from RuoJi6/ARTEX \`$TAG\` (identical upstream binaries; AGPL-3.0). Source: https://github.com/RuoJi6/ARTEX/releases/tag/$TAG"
+          fi
+          gh release view "$TAG" --repo "${{ github.repository }}"
